@@ -7,11 +7,12 @@ import random
 
 
 class RNNEncoder(nn.Module):
-    def __init__(self, input_size, n_dim=128):
+    def __init__(self, input_size, n_dim=128, batch_size=1):
         super(RNNEncoder, self).__init__()
         # parameters
         self.n_dim = n_dim
         self.input_size = input_size
+        self.batch_size = batch_size
 
         self.embedding_layer = self.make_embedding_layer()
         self.hidden_layer = self.make_hidden_layer()
@@ -25,23 +26,24 @@ class RNNEncoder(nn.Module):
         hidden_layer = nn.GRU(self.n_dim, self.n_dim)
         return hidden_layer
 
-    def forward(self, input_data, hidden_state, batch_size):
+    def forward(self, input_data, hidden_state):
         embedded = self.embedding_layer(input_data)
-        embedded = embedded.view(1, batch_size, self.n_dim)
+        embedded = embedded.view(1, self.batch_size, self.n_dim)
         output, hidden_state = self.hidden_layer(embedded, hidden_state)
         return output, hidden_state
 
-    def init_state(self, batch_size):
-        return torch.zeros(1, batch_size, self.n_dim)
+    def init_state(self):
+        return torch.zeros(1, self.batch_size, self.n_dim)
 
 
 class RNNDecoder(nn.Module):
-    def __init__(self, input_size, n_dim=128, n_layers=1):
+    def __init__(self, input_size, n_dim=128, n_layers=1, batch_size=1):
         super(RNNDecoder, self).__init__()
         # parameters
         self.n_layers = n_layers
         self.n_dim = n_dim
         self.input_size = input_size
+        self.batch_size = batch_size
 
         self.embedding_layer = self.make_embedding_layer()
         self.hidden_layer = self.make_hidden_layer()
@@ -57,9 +59,9 @@ class RNNDecoder(nn.Module):
         hidden_layer = nn.GRU(self.n_dim, self.n_dim)
         return hidden_layer
 
-    def forward(self, input_data, hidden_state, batch_size):
+    def forward(self, input_data, hidden_state):
         embedded = self.embedding_layer(input_data)
-        output = embedded.view(1, batch_size, self.n_dim)
+        output = embedded.view(1, self.batch_size, self.n_dim)
 
         for i in range(self.n_layers):
             output = F.relu(output)
@@ -68,8 +70,8 @@ class RNNDecoder(nn.Module):
         output = self.softmax(output)
         return output, hidden_state
 
-    def init_state(self, batch_size):
-        return torch.zeros(1, batch_size, self.n_dim)
+    def init_state(self):
+        return torch.zeros(1, self.batch_size, self.n_dim)
 
 
 class Seq2Seq(object):
@@ -80,8 +82,8 @@ class Seq2Seq(object):
         self.batch_size = batch_size
         self.max_len = max_len
         self.teacher_forcing_ratio = teacher_forcing_ratio
-        self.encoder = RNNEncoder(vocab_size, n_dim)
-        self.decoder = RNNDecoder(vocab_size, n_dim, n_layers)
+        self.encoder = RNNEncoder(vocab_size, n_dim, batch_size)
+        self.decoder = RNNDecoder(vocab_size, n_dim, n_layers, batch_size)
         self.optim = optim.Adam(list(self.encoder.parameters()) + list(self.decoder.parameters()), lr=0.001)
 
     def train(self, data):
@@ -89,9 +91,9 @@ class Seq2Seq(object):
         self.optim.zero_grad()
 
         # Encoder
-        encoder_state = self.encoder.init_state(self.batch_size)
+        encoder_state = self.encoder.init_state()
         for c in range(self.max_len):
-            _, encoder_state = self.encoder(data[:, 0, c], encoder_state, self.batch_size)
+            _, encoder_state = self.encoder(data[:, 0, c], encoder_state)
 
         # Decoder
         decoder_input = torch.LongTensor([self.char_dict.char2idx['SOS']] * self.batch_size)
@@ -101,7 +103,7 @@ class Seq2Seq(object):
 
         if use_teacher_forcing:
             for c in range(self.max_len):
-                decoder_result, decoder_state = self.decoder(decoder_input, decoder_state, self.batch_size)
+                decoder_result, decoder_state = self.decoder(decoder_input, decoder_state)
                 decoder_input = data[:, 1, c]
                 if c == self.max_len - 1:
                     loss += self.loss_function(decoder_result,
@@ -110,7 +112,7 @@ class Seq2Seq(object):
                     loss += self.loss_function(decoder_result, data[:, 1, c])
         else:
             for c in range(self.max_len):
-                decoder_result, decoder_state = self.decoder(decoder_input, decoder_state, self.batch_size)
+                decoder_result, decoder_state = self.decoder(decoder_input, decoder_state)
                 top_value, top_idx = decoder_result.data.topk(1)
                 decoder_input = top_idx
                 if c == self.max_len - 1:
@@ -128,15 +130,15 @@ class Seq2Seq(object):
         loss = 0
 
         # Encoder
-        encoder_state = self.encoder.init_state(self.batch_size)
+        encoder_state = self.encoder.init_state()
         for c in range(self.max_len):
-            _, encoder_state = self.encoder(data[:, 0, c], encoder_state, self.batch_size)
+            _, encoder_state = self.encoder(data[:, 0, c], encoder_state)
 
         # Decoder
         decoder_input = torch.LongTensor([self.char_dict.char2idx['SOS']] * self.batch_size)
         decoder_state = encoder_state
         for c in range(self.max_len):
-            decoder_result, decoder_state = self.decoder(decoder_input, decoder_state, self.batch_size)
+            decoder_result, decoder_state = self.decoder(decoder_input, decoder_state)
             top_value, top_idx = decoder_result.data.topk(1)
             decoder_outputs.append([self.char_dict.idx2char[top_i.data.tolist()[0]] for top_i in top_idx])
             decoder_input = top_idx

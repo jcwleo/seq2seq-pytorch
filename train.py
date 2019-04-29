@@ -33,8 +33,14 @@ train_loader = torch.utils.data.DataLoader(pairs, batch_size=BATCH_SIZE, shuffle
 
 # make model
 loss_function = nn.NLLLoss()
+
+# Attention model
 seq2seq = AttentionSeq2Seq(len(char_dict.char2idx), char_dict, loss_function, batch_size=BATCH_SIZE, max_len=MAX_LEN,
                            n_layers=HIDDEN_LAYERS, n_dim=HIDDEN_SIZE, teacher_forcing_ratio=TEACHER_FORCING_RATIO)
+
+# Basic model
+# seq2seq = Seq2Seq(len(char_dict.char2idx), char_dict, loss_function, batch_size=BATCH_SIZE, max_len=MAX_LEN,
+#                   n_layers=HIDDEN_LAYERS, n_dim=HIDDEN_SIZE, teacher_forcing_ratio=TEACHER_FORCING_RATIO)
 
 # train
 for e in range(EPOCH):
