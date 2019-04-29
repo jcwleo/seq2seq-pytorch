@@ -2,7 +2,7 @@
 
 - [x] Sequence to Sequence Learning with Neural Nerworks [[1]](#references)
 - [x] Neural Machine Translation by Jointly Learning to Align and Translate [[2]](#references)
-- [x] Attention Is All You Need [[3]](#references)
+- [ ] Attention Is All You Need [[3]](#references) (WIP)
 
  
 ## 1. Setup
