@@ -94,7 +94,7 @@ class AttentionSeq2Seq(object):
         self.decoder = AttentionDecoder(vocab_size, n_dim, n_layers, batch_size)
         self.optim = optim.Adam(list(self.encoder.parameters()) + list(self.decoder.parameters()), lr=0.001)
 
-    def train(self, data):
+    def train_model(self, data):
         loss = 0
         self.optim.zero_grad()
         encoder_outputs = []
@@ -115,27 +115,19 @@ class AttentionSeq2Seq(object):
             for c in range(self.max_len):
                 decoder_result, decoder_state = self.decoder(decoder_input, decoder_state, encoder_outputs)
                 decoder_input = data[:, 1, c]
-                if c == self.max_len - 1:
-                    loss += self.loss_function(decoder_result,
-                                               torch.LongTensor([self.char_dict.char2idx['EOS']] * self.batch_size))
-                else:
-                    loss += self.loss_function(decoder_result, data[:, 1, c])
+                loss += self.loss_function(decoder_result, data[:, 1, c])
         else:
             for c in range(self.max_len):
                 decoder_result, decoder_state = self.decoder(decoder_input, decoder_state, encoder_outputs)
                 top_value, top_idx = decoder_result.data.topk(1)
                 decoder_input = top_idx
-                if c == self.max_len - 1:
-                    loss += self.loss_function(decoder_result,
-                                               torch.LongTensor([self.char_dict.char2idx['EOS']] * self.batch_size))
-                else:
-                    loss += self.loss_function(decoder_result, data[:, 1, c])
+                loss += self.loss_function(decoder_result, data[:, 1, c])
 
         loss.backward()
         self.optim.step()
         return loss.data / self.max_len
 
-    def eval(self, data):
+    def eval_model(self, data):
         loss = 0
         decoder_outputs = []
         encoder_outputs = []
